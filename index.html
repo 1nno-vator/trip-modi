@@ -19,7 +19,6 @@
                 width: 30px;
                 height: 85px;
                 border: 1px solid #000000;
-                display: none;
             }
 
             .fa-angle-up {
@@ -120,7 +119,7 @@
             const stops = d3.merge(data.map(d => d.stops.map(s => ({train: d, stop: s}))));
 
             const width = 1600;
-            const height = 2400;
+            const height = 800;
             const margin = ({top: 120, right: 30, bottom: 120, left: 50});
 
             const colors = ({
@@ -230,9 +229,16 @@
                                         .attr("d", (d, i) => voronoi.renderCell(i))
                                         .on("mouseout", () => {
                                             tooltip.style("display", "none")
+                                            const cp = d3.select('.control-panel')
+                                                            .style('display', "none");
                                         })
                                         .on("mouseover", (ev, d) => {
                                             tooltip.style("display", null);
+
+                                            const cp = d3.select('.control-panel')
+                                                            .style('display', null);
+                                            
+
                                             // 포인트. 라인 마우스 오버
                                             line1.text(`${d.train.number}${d.train.direction}`);
                                             line2.text(d.stop.station.name);
@@ -374,15 +380,11 @@
         </script>
     </head>
     <body>
-        <div id='svgContainer'></div>
-
-
-
         <div id='control-panel' class='control-panel'>
             <div><i class="fas fa-angle-up fa-2x"></i></div>
             <div>1분</div>
             <div><i class="fas fa-angle-down fa-2x"></i></div>
         </div>
-
+        <div id='svgContainer'></div>
     </body>
 </html>
