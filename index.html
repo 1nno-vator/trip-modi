@@ -10,11 +10,12 @@
         
         
         <style>
-            .active {
-                fill: red
+            .highlight {
+                
             }
 
             .control-panel {
+                background: white;;
                 text-align: center;
                 width: 30px;
                 height: 85px;
@@ -33,6 +34,9 @@
         <script>
 
             let master_data = null;
+            let stations_origin = null;
+            let targetTrain = null;
+            let targetData = null;
 
             const s1_url = "https://gist.githubusercontent.com/1nno-vator/75df178a251702a209633432e8df3e84/raw/94d1ff6e74a3cd00776373642f27ca54872013ef/s1.tsv";
             const s2_url = "https://gist.githubusercontent.com/1nno-vator/75df178a251702a209633432e8df3e84/raw/94d1ff6e74a3cd00776373642f27ca54872013ef/s2.tsv";
@@ -48,7 +52,76 @@
 
             // drawSample();
 
+            domEventRegister();
+
         });
+
+        function domEventRegister() {
+            
+            const minusBtn = document.getElementById('minusBtn');
+            minusBtn.addEventListener('click', () => {
+                updateSch('down', 60);
+                const controlPanelDom = document.getElementById('control-panel');
+
+                let nowPosition = controlPanelDom.style.transform;
+                let repPosition = replaceAll(
+                                                nowPosition
+                                                    .replace(' ','')
+                                                    .replace("translate(",'')
+                                                    .replace(')','')
+                                            ,'px','');
+                
+                let [xcrd, ycrd] = repPosition.split(',');
+
+                const newPosition = `translate(${Number(xcrd)}px, ${(Number(ycrd) - 1)}px)`;
+                console.log(newPosition);
+
+                controlPanelDom.style.transform = newPosition;
+            })
+
+            const plusBtn = document.getElementById('plusBtn');
+            plusBtn.addEventListener('click', () => {
+                updateSch('up', 60);
+                const controlPanelDom = document.getElementById('control-panel');
+                let nowPosition = controlPanelDom.style.transform;
+                let repPosition = replaceAll(
+                                                nowPosition
+                                                    .replace(' ','')
+                                                    .replace("translate(",'')
+                                                    .replace(')','')
+                                            ,'px','');
+                
+                let [xcrd, ycrd] = repPosition.split(',');
+                console.log(xcrd);
+                console.log(ycrd);
+
+                const newPosition = `translate(${Number(xcrd)}px, ${(Number(ycrd) + 1)}px)`;
+                console.log(newPosition);
+
+                controlPanelDom.style.transform = newPosition;
+            })            
+
+        }
+
+        function updateSch(dir, sec) {
+            master_data = master_data.map((v,i) => {
+                                                if (v.number === targetTrain) {
+                                                    v.stops = (v.stops).map(z => {
+                                                        const transTime = dir === 'up' ? moment(z.time).add(sec, 'seconds').toDate() : moment(z.time).subtract(sec, 'seconds').toDate() ;
+                                                        z.time = transTime;
+                                                        return z;
+                                                    })
+                                                    return v;
+                                                } else {
+                                                    return v;
+                                                }
+                                            })
+
+        master_data.stations = stations_origin;
+        console.log('redraw');
+
+        drawChart(master_data);
+        }
 
         async function getData (url) {
                 // const data = await d3.tsv("https://gist.githubusercontent.com/mbostock/5544008/raw/446592acc3a9223ad268c7b051a68b814e40789c/schedule.tsv");
@@ -119,7 +192,7 @@
             const stops = d3.merge(data.map(d => d.stops.map(s => ({train: d, stop: s}))));
 
             const width = 1600;
-            const height = 800;
+            const height = 2400;
             const margin = ({top: 120, right: 30, bottom: 120, left: 50});
 
             const colors = ({
@@ -227,17 +300,21 @@
                                     .data(stops)
                                     .join("path")
                                         .attr("d", (d, i) => voronoi.renderCell(i))
-                                        .on("mouseout", () => {
+                                        .on("mouseout", (ev, d) => {
                                             tooltip.style("display", "none")
-                                            const cp = d3.select('.control-panel')
-                                                            .style('display', "none");
+                                            const tPath = d3.selectAll(`.highlight`)
+                                                                .attr("stroke-width", 3)
+                                                                .classed('highlight', false);
                                         })
                                         .on("mouseover", (ev, d) => {
                                             tooltip.style("display", null);
 
-                                            const cp = d3.select('.control-panel')
-                                                            .style('display', null);
-                                            
+                                            const tPath = d3.selectAll(`.N${d.train.number}${d.train.type}${d.train.direction}`)
+                                                                .attr("stroke-width", 7)
+                                                                .classed('highlight', true);
+                                                                ;
+                                                                 console.log(tPath);
+                                        
 
                                             // 포인트. 라인 마우스 오버
                                             line1.text(`${d.train.number}${d.train.direction}`);
@@ -259,55 +336,27 @@
                                             })`);
                                         })
                                         .on("click", function(ev, d) {
-                                            console.log(d);
-                                            const targetTrain = d.train.number;
-                                            console.log(targetTrain);
-
-                                            console.log(ev);
+                                            const cp = d3.select('.control-panel')
+                                                            .style('display', null)
+                                                            .style("transform", "translate(" + (ev.offsetX + 15) + "px," + (ev.offsetY + 50) + "px)")
+                                                            ;
                                             
+                                            
+                                            const checkPinned = d3.selectAll('.pinned')
+                                                                    .attr("stroke-width", 3)
+                                                                    .attr("stroke", d => colors[d.type])
+                                                                    .classed('pinned', false);
+                                            
+                                            const pinPath = d3.selectAll(`.N${d.train.number}${d.train.type}${d.train.direction}`)
+                                                .attr("stroke-width", 7)
+                                                .attr("stroke", "blue")
+                                                .classed('pinned', true);
+                                                ;
+
+                                            targetData = d;
+                                            targetTrain = targetData.train.number;
+                                            stations_origin = master_data.stations;
                                     
-                                            const stations_origin = master_data.stations;
-
-                                            master_data = master_data.map((v,i) => {
-
-                                                if (v.number === targetTrain) {
-
-                                                    console.log(v.stops);
-                                                    v.stops = (v.stops).map(z => {
-                                                        const transTime = moment(z.time).subtract(10, 'minutes').toDate();
-                                                        z.time = transTime;
-                                                        return z;
-                                                    })
-
-                                                    // v.stops = (v.stops).map((z,x) => {
-                                                    //     const transTime = moment(z.time).add(10, 'minutes').toDate();
-                                                        
-                                                    //     console.log('-----');
-                                                    //     console.log(z.time);
-                                                    //     console.log(transTime);
-                                                    //     console.log('-----');
-
-                                                    //     z.time = transTime;
-                                                    // })
-
-    
-
-                                                    // parseTime(d[station.key])
-                                                    // v.stops.time = transTime;
-
-                                                    return v;
-                                                } else {
-                                                    return v;
-                                                }
-                                            })
-
-                                            master_data.stations = stations_origin;
-                                            console.log('redraw');
-
-
-                                            drawChart(master_data);
-
-
                                         })
                                     ;
                                 };
@@ -350,7 +399,7 @@
             .data(d => d.stops)
             .join("circle")
                 .attr("transform", d => `translate(${x(d.station.distance)},${y(d.time)})`)
-                .attr("r", 5)
+                .attr("r", 7.5)
                 
                 ;
         
@@ -376,14 +425,17 @@
             
         }
 
+        function replaceAll(str, searchStr, replaceStr) {
+            return str.split(searchStr).join(replaceStr);
+        }
 
         </script>
     </head>
     <body>
         <div id='control-panel' class='control-panel'>
-            <div><i class="fas fa-angle-up fa-2x"></i></div>
+            <div id='minusBtn' class="div-btn"><i class="fas fa-angle-up fa-2x"></i></div>
             <div>1분</div>
-            <div><i class="fas fa-angle-down fa-2x"></i></div>
+            <div id='plusBtn' class="div-btn"><i class="fas fa-angle-down fa-2x"></i></div>
         </div>
         <div id='svgContainer'></div>
     </body>
