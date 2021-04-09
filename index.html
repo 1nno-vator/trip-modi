@@ -1,26 +1,61 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <script src="https://d3js.org/d3-dispatch.v2.min.js"></script>
-        <script src="https://d3js.org/d3-selection.v2.min.js"></script>
-        <script src="https://d3js.org/d3-drag.v2.min.js"></script>
-        <script src="https://d3js.org/d3.v6.js"></script>
+        
+        <link href="./static/css/all.min.css" rel="stylesheet">
+        <script src="./static/js/all.min.js"></script>
 
+        <script src="https://d3js.org/d3.v6.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+        
+        
         <style>
             .active {
                 fill: red
             }
+
+            .control-panel {
+                text-align: center;
+                width: 30px;
+                height: 85px;
+                border: 1px solid #000000;
+                display: none;
+            }
+
+            .fa-angle-up {
+                cursor: pointer;
+            }
+
+            .fa-angle-down {
+                cursor: pointer;
+            }
         </style>
 
         <script>
+
+            let master_data = null;
+
+            const s1_url = "https://gist.githubusercontent.com/1nno-vator/75df178a251702a209633432e8df3e84/raw/94d1ff6e74a3cd00776373642f27ca54872013ef/s1.tsv";
+            const s2_url = "https://gist.githubusercontent.com/1nno-vator/75df178a251702a209633432e8df3e84/raw/94d1ff6e74a3cd00776373642f27ca54872013ef/s2.tsv";
+
             document.addEventListener("DOMContentLoaded", function(){
             // Handler when the DOM is fully loaded
 
             console.log('hihi');
 
+            console.log('asdasd');
 
-            const alldata = async () => {
-                const data = await d3.tsv("https://gist.githubusercontent.com/mbostock/5544008/raw/446592acc3a9223ad268c7b051a68b814e40789c/schedule.tsv");
+            getData(s1_url);
+
+            // drawSample();
+
+        });
+
+        async function getData (url) {
+                // const data = await d3.tsv("https://gist.githubusercontent.com/mbostock/5544008/raw/446592acc3a9223ad268c7b051a68b814e40789c/schedule.tsv");
+                const data = await d3.tsv(url);
+                // s1: https://gist.githubusercontent.com/1nno-vator/75df178a251702a209633432e8df3e84/raw/94d1ff6e74a3cd00776373642f27ca54872013ef/s1.tsv
+                // s2: https://gist.githubusercontent.com/1nno-vator/75df178a251702a209633432e8df3e84/raw/94d1ff6e74a3cd00776373642f27ca54872013ef/s2.tsv
                 
                 // Extract the stations from the "stop|*" columns.
                 const stations = data.columns
@@ -34,7 +69,7 @@
                     data.map(d => ({
                     number: d.number,
                     type: d.type,
-                    direction: d.direction,
+                    direction: d.direction, 
                     stops: stations
                         .map(station => ({station, time: parseTime(d[station.key])}))
                         .filter(station => station.time !== null)
@@ -42,20 +77,18 @@
                     {stations}
                 );
 
+                master_data = returnObj
+
                 console.log(stations);
                 console.log(returnObj);
                 drawChart(returnObj)
             };
 
-            console.log(d3.drag());
-
-            alldata();
-
-            // drawSample();
-
-        });
-
         function drawSample() {
+            
+            const cDiv = document.getElementById('chartContainer');
+            cDiv.innerHTML = "";
+            
             var width = 500;
             var height = 500;
 
@@ -77,8 +110,9 @@
 
         function drawChart(alldata) {
             
-            console.log(d3);
-            console.log(alldata);
+            // init div
+            const tDiv = document.getElementById('svgContainer');
+            tDiv.innerHTML = "";
 
             const data = alldata;
             // const data = alldata.filter(d => days(d) && direction(d));
@@ -106,8 +140,16 @@
                         .range([margin.top, height - margin.bottom]);
 
             const line = d3.line()
-                        .x(d => x(d.station.distance))
-                        .y(d => y(d.time));
+                        .x(d => {
+                            return x(d.station.distance)
+                        })
+                        .y(d => {
+                            // console.log(d.time);
+                            // const transTime = moment(d.time).add(10, 'minutes').toDate();
+                            // console.log(transTime);
+
+                            return y(d.time)
+                        });
 
             let voronoi = d3.Delaunay
                         .from(stops, d => x(d.stop.station.distance), d => y(d.stop.time))
@@ -186,9 +228,12 @@
                                     .data(stops)
                                     .join("path")
                                         .attr("d", (d, i) => voronoi.renderCell(i))
-                                        .on("mouseout", () => tooltip.style("display", "none"))
+                                        .on("mouseout", () => {
+                                            tooltip.style("display", "none")
+                                        })
                                         .on("mouseover", (ev, d) => {
                                             tooltip.style("display", null);
+                                            // 포인트. 라인 마우스 오버
                                             line1.text(`${d.train.number}${d.train.direction}`);
                                             line2.text(d.stop.station.name);
                                             line3.text(formatTime(d.stop.time));
@@ -201,18 +246,69 @@
                                                 v${box.height + 20}
                                                 h-${box.width + 20}
                                                 z
-                                        `);
-                                        tooltip.attr("transform", `translate(${
-                                            x(d.stop.station.distance) - box.width / 2},${
-                                            y(d.stop.time) + 28
-                                        })`);
+                                            `);
+                                            tooltip.attr("transform", `translate(${
+                                                x(d.stop.station.distance) - box.width / 2},${
+                                                y(d.stop.time) + 28
+                                            })`);
+                                        })
+                                        .on("click", function(ev, d) {
+                                            console.log(d);
+                                            const targetTrain = d.train.number;
+                                            console.log(targetTrain);
+
+                                            console.log(ev);
+                                            
+                                    
+                                            const stations_origin = master_data.stations;
+
+                                            master_data = master_data.map((v,i) => {
+
+                                                if (v.number === targetTrain) {
+
+                                                    console.log(v.stops);
+                                                    v.stops = (v.stops).map(z => {
+                                                        const transTime = moment(z.time).subtract(10, 'minutes').toDate();
+                                                        z.time = transTime;
+                                                        return z;
+                                                    })
+
+                                                    // v.stops = (v.stops).map((z,x) => {
+                                                    //     const transTime = moment(z.time).add(10, 'minutes').toDate();
+                                                        
+                                                    //     console.log('-----');
+                                                    //     console.log(z.time);
+                                                    //     console.log(transTime);
+                                                    //     console.log('-----');
+
+                                                    //     z.time = transTime;
+                                                    // })
+
+    
+
+                                                    // parseTime(d[station.key])
+                                                    // v.stops.time = transTime;
+
+                                                    return v;
+                                                } else {
+                                                    return v;
+                                                }
+                                            })
+
+                                            master_data.stations = stations_origin;
+                                            console.log('redraw');
+
+
+                                            drawChart(master_data);
+
+
                                         })
                                     ;
                                 };
             
             
 
-            const svg = d3.select("body")
+            const svg = d3.select("#svgContainer")
                         .append("svg")
                         .attr("width", width)
                         .attr("height", height);
@@ -224,16 +320,21 @@
                 .call(yAxis);
         
             const train = svg.append("g")
-                .attr("stroke-width", 5)
-            .selectAll("g")
-            .data(data)
-            .join("g")
+                .attr("stroke-width", 3)
+                .selectAll("g")
+                .data(data)
+                .join("g")
+                ;
         
             let path = train.append("path")
                 .attr("fill", "none")
                 .attr("stroke", d => colors[d.type])
                 // .attr("stroke", "blue")
                 .attr("d", d => line(d.stops))
+                .attr("class", d =>  "dLine " + "N" + d.number + d.type + d.direction)
+                .on('mouseover', function(d, i) {
+                   console.log(i);
+                })
                 ;
         
             train.append("g")
@@ -244,21 +345,15 @@
             .join("circle")
                 .attr("transform", d => `translate(${x(d.station.distance)},${y(d.time)})`)
                 .attr("r", 5)
+                
                 ;
         
             svg.append("g")
-                 .call(tooltipF);
+                   .call(tooltipF);
 
             const svgnode = svg.node();
 
-            console.log(svgnode);
-
-            const container = d3.select('svgContiner')
-                                .append(svgnode);
-            console.log(container);
-
             function update() {
-                voronoi = d3.Delaunay.from(path, d => d.x, d => d.y).voronoi([0, 0, width, height]);
                 path.attr("transform", d => `translate(${d.x},${d.y})`);
             }
 
@@ -266,7 +361,6 @@
 
         const parseTime = (string) => {
             const parseTime = d3.utcParse("%I:%M%p");
-            
             const date = parseTime(string);
             if (date !== null && date.getUTCHours() < 3) {
                 date.setUTCDate(date.getUTCDate() + 1);
@@ -276,26 +370,19 @@
             
         }
 
-        function dragstarted(d) {
-        d3.select(this).raise().classed("active", true);
-        }
-
-        function dragged(event, d) {
-            
-            const ou = d3.select(this);
-        
-            console.log(ou.select("path"));
-
-            ou.select("path").remove();
-        }
-
-        function dragended(d) {
-        d3.select(this).classed("active", false);
-        }
 
         </script>
     </head>
     <body>
-        <div id='svgContiner'></div>
+        <div id='svgContainer'></div>
+
+
+
+        <div id='control-panel' class='control-panel'>
+            <div><i class="fas fa-angle-up fa-2x"></i></div>
+            <div>1분</div>
+            <div><i class="fas fa-angle-down fa-2x"></i></div>
+        </div>
+
     </body>
 </html>
